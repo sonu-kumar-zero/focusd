@@ -23,6 +23,7 @@ export function CallHeader({
         className="icon-button invite"
         onClick={onCopyInvite}
         title="Copy invite link"
+        aria-label="Copy invite link"
       >
         <Copy size={17} />
         <span>Invite</span>

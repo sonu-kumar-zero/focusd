@@ -7,5 +7,5 @@ COPY src ./src
 RUN npm install --no-save typescript @types/node @types/express @types/cors
 RUN npx tsc
 ENV NODE_ENV=production
-EXPOSE 4000
+EXPOSE 4000 40000-40100/udp 40000-40100/tcp
 CMD ["node", "dist/index.js"]

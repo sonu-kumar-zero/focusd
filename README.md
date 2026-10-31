@@ -1,10 +1,10 @@
-# Two-person WebRTC video calling app
+# SFU WebRTC video calling app
 
-A Zoom-style, one-to-one video calling starter built with **React + TypeScript + Vite**, **Node.js + TypeScript**, **Socket.IO** for signaling, and browser-native **WebRTC** for audio/video.
+A Zoom-style group video calling starter built with **React + TypeScript + Vite**, **Node.js + TypeScript**, **Socket.IO** for signaling, and **mediasoup** as the Selective Forwarding Unit (SFU).
 
 Features:
 - Create or join a room using a room ID
-- Two-person room limit
+- Rooms with up to ten participants
 - Camera and microphone permissions
 - Mute/unmute microphone
 - Camera on/off
@@ -12,14 +12,14 @@ Features:
 - In-call text chat
 - Connection state and participant status
 - Leave call
-- Configurable STUN/TURN servers
+- Server-routed media through a mediasoup SFU
 - Dockerfile for the signaling server
 
-> This is a functional starter, not a production Zoom replacement. WebRTC media normally travels peer-to-peer; the Node server only exchanges signaling messages. For reliable calls across restrictive NATs/mobile networks, configure a TURN server. The included public STUN server is for development and is not a guaranteed production service.
+> This is a functional starter, not a production Zoom replacement. The SFU receives each participant's encrypted WebRTC uplink and forwards selected media to subscribers. For reliable calls across restrictive NATs/mobile networks, configure the SFU's public IP and a TURN server.
 
 ## Requirements
 
-- Node.js 20+
+- Node.js 22+
 - npm 10+
 - A modern browser (Chrome, Edge, Firefox, Safari)
 - HTTPS in production (camera/microphone and screen capture require a secure context; `localhost` is allowed for development)
@@ -32,7 +32,7 @@ cp server/.env.example server/.env
 npm run dev
 ```
 
-Open the Vite URL shown in the terminal (normally `http://localhost:5173`) in two browser windows/devices. Create a room in one and join with the same room ID in the other.
+Open the Vite URL shown in the terminal (normally `http://localhost:5173`) in multiple browser windows/devices. Create a room in one and join with the same room ID in the others.
 
 The signaling server runs on `http://localhost:4000`.
 
@@ -43,6 +43,9 @@ The signaling server runs on `http://localhost:4000`.
 ```env
 PORT=4000
 CLIENT_ORIGIN=http://localhost:5173
+MEDIASOUP_MIN_PORT=40000
+MEDIASOUP_MAX_PORT=40100
+MEDIASOUP_ANNOUNCED_IP=your.public.ip.or.dns.name
 ```
 
 Optional client `.env`:
@@ -60,27 +63,35 @@ VITE_ICE_SERVERS=[{"urls":"stun:stun.l.google.com:19302"},{"urls":"turn:turn.exa
 
 Use credentials from your own TURN provider. Do not commit real TURN credentials to a public repository. For production, inject secrets at deployment time and consider a short-lived TURN credential mechanism.
 
-## Production notes
+## SFU and production notes
 
 1. Deploy the signaling server and client behind HTTPS/WSS. Configure `CLIENT_ORIGIN` to the exact deployed client origin.
-2. Add a TURN service (for example, coturn or a managed TURN provider). Without TURN, some users will fail to connect.
-3. The server limits rooms to two sockets but this in-memory state is not shared across multiple server instances. Use sticky sessions/shared coordination if horizontally scaling.
-4. Add authentication, room authorization, rate limiting, abuse reporting, logging/monitoring, and privacy/retention policies before public launch.
-5. This demo has no recording, call scheduling, user accounts, or end-to-end identity verification.
-6. Screen sharing is browser-dependent and generally requires HTTPS.
-7. Socket.IO signaling is not the media path. The browser establishes an encrypted WebRTC peer connection (DTLS-SRTP).
+2. Set `MEDIASOUP_ANNOUNCED_IP` to the public address clients can reach and expose the UDP/TCP range configured by `MEDIASOUP_MIN_PORT` and `MEDIASOUP_MAX_PORT`.
+3. Add a TURN service (for example, coturn or a managed TURN provider) and configure the client ICE servers. The SFU still needs reachable ICE candidates.
+4. The server limits rooms to ten sockets, but room and worker state is in memory and is not shared across multiple server instances. Use a room-aware router, shared coordination, and sticky sessions when horizontally scaling.
+5. Add authentication, room authorization, rate limiting, abuse reporting, logging/monitoring, and privacy/retention policies before public launch.
+6. This demo has no recording, call scheduling, user accounts, or end-to-end identity verification.
+7. Screen sharing is browser-dependent and generally requires HTTPS.
+8. Socket.IO handles control/signaling messages; mediasoup owns WebRTC transports, producers, and consumers. Media remains encrypted in transit with DTLS-SRTP.
 
 ## Project layout
 
 ```text
 client/   React + TypeScript UI
-server/   TypeScript Socket.IO signaling server
+server/   TypeScript Socket.IO + mediasoup SFU server
+  src/config.ts           Environment and media configuration
+  src/mediaServer.ts      mediasoup worker, router, and transport helpers
+  src/roomStore.ts        In-memory room and peer state
+  src/roomService.ts      Room lifecycle and peer cleanup
+  src/socketHandlers.ts   Socket.IO room, SFU, chat, and media handlers
+  src/types.ts            Shared server event and domain types
+  src/index.ts            HTTP/SFU server composition root
 ```
 
 ## Troubleshooting
 
 - **No camera/microphone:** allow permissions and use `localhost` or HTTPS.
-- **No remote video:** inspect browser console; verify both peers joined the same room and configure TURN.
-- **Room full:** only two participants are allowed. Leave the other browser tab/session.
+- **No remote video:** inspect browser console; verify the SFU UDP/TCP port range and `MEDIASOUP_ANNOUNCED_IP`, then configure TURN.
+- **Room full:** ten participants are allowed. Leave another browser tab/session if the room is full.
 - **Screen share unavailable:** use a supported desktop browser and HTTPS.
 - **Can't connect from another network:** configure a reachable TURN server and verify firewall/network rules.

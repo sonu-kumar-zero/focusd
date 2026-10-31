@@ -23,7 +23,7 @@ export function ChatPanel({
     <aside className="chat-panel">
       <div className="chat-heading">
         <strong>In-call messages</strong>
-        <button className="plain-icon" onClick={onClose}>
+        <button className="plain-icon" onClick={onClose} aria-label="Close chat">
           <X size={18} />
         </button>
       </div>

@@ -37,7 +37,7 @@ export function LandingPage({
           <span>from anywhere.</span>
         </h1>
         <p className="muted">
-          A simple, private video room for you and one other person.
+          A simple, private video room for up to ten participants.
         </p>
         <label>Your name</label>
         <input
@@ -76,7 +76,7 @@ export function LandingPage({
           access.
         </p>
       </section>
-      <footer>Built with WebRTC · Audio and video are peer-to-peer</footer>
+      <footer>Built with WebRTC · Audio and video are routed through an SFU</footer>
     </main>
   );
 }
