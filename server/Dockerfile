@@ -1,4 +1,23 @@
-FROM node:22-alpine
+FROM node:22-bookworm-slim
+
+# mediasoup uses a native worker. Debian's glibc runtime supports its
+# prebuilt worker; these tools also allow the package to build it when a
+# matching prebuild is unavailable.
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    cmake \
+    g++ \
+    gcc \
+    git \
+    make \
+    ninja-build \
+    pkg-config \
+    python3 \
+    python3-pip \
+  && ln -s /usr/bin/python3 /usr/local/bin/python \
+  && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 COPY package.json ./
 RUN npm install --omit=dev
