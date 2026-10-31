@@ -165,13 +165,20 @@ export function useCallSession() {
         }
       };
       pc.ontrack = (event) => {
-        const stream =
-          event.streams[0] ??
-          remoteStreamsRef.current.get(peer.id) ??
-          new MediaStream();
+        const stream = remoteStreamsRef.current.get(peer.id) ?? new MediaStream();
         remoteStreamsRef.current.set(peer.id, stream);
         if (!stream.getTracks().includes(event.track)) stream.addTrack(event.track);
         updateParticipant(peer, { stream });
+      };
+      pc.oniceconnectionstatechange = () => {
+        if (
+          pc.iceConnectionState === "failed" ||
+          pc.iceConnectionState === "disconnected"
+        ) {
+          setError(
+            `${peer.name} connection ${pc.iceConnectionState}. Check HTTPS, TURN, and firewall settings.`,
+          );
+        }
       };
       pc.onconnectionstatechange = () => {
         if (pc.connectionState === "failed") {

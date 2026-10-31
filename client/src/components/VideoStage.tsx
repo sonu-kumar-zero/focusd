@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CameraOff, MicOff, Users } from "lucide-react";
 import type { RemoteParticipant } from "../hooks/useCallSession";
 import { CallControls } from "./CallControls";
@@ -23,12 +23,32 @@ function VideoTile({
   screen = false,
 }: VideoTileProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const [playbackBlocked, setPlaybackBlocked] = useState(false);
 
   useEffect(() => {
     if (!videoRef.current || !stream) return;
     videoRef.current.srcObject = stream;
-    void videoRef.current.play().catch(() => undefined);
-  }, [stream]);
+    const play = () =>
+      videoRef.current?.play().then(
+        () => setPlaybackBlocked(false),
+        (error: unknown) => {
+          if (error instanceof DOMException && error.name === "NotAllowedError") {
+            setPlaybackBlocked(true);
+            return;
+          }
+          console.warn(`Unable to play ${name}'s media`, error);
+        },
+      );
+    videoRef.current.onloadedmetadata = play;
+    play();
+    return () => {
+      if (videoRef.current) videoRef.current.onloadedmetadata = null;
+    };
+  }, [name, stream]);
+
+  const enablePlayback = () => {
+    void videoRef.current?.play().then(() => setPlaybackBlocked(false));
+  };
 
   return (
     <div className="video-tile">
@@ -52,6 +72,11 @@ function VideoTile({
           </div>
           <h3>Connecting…</h3>
         </div>
+      )}
+      {playbackBlocked && (
+        <button className="media-playback-button" onClick={enablePlayback}>
+          Tap to enable audio/video
+        </button>
       )}
       <div className="tile-label">
         {name} {!audio && <MicOff size={14} />}
