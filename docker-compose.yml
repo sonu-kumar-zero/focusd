@@ -1,0 +1,10 @@
+services:
+  signaling:
+    build: ./server
+    container_name: webrtc-signaling
+    restart: unless-stopped
+    environment:
+      PORT: 4000
+      CLIENT_ORIGIN: http://localhost:5173
+    ports:
+      - "4000:4000"
