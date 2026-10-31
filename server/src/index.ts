@@ -7,6 +7,7 @@ import { Server, Socket } from "socket.io";
 
 type Peer = { id: string; name: string };
 type Room = { peers: Map<string, Peer> };
+const MAX_ROOM_SIZE = 10;
 
 type ClientToServerEvents = {
   "room:create": (payload: { name: string }) => void;
@@ -82,7 +83,7 @@ io.on("connection", socket => {
     const roomId = String(rawRoomId ?? "").trim().toUpperCase();
     const room = rooms.get(roomId);
     if (!room) { socket.emit("room:error", { message: "Room not found. Check the code or create a new room." }); return; }
-    if (room.peers.size >= 2) { socket.emit("room:error", { message: "This room already has two participants." }); return; }
+    if (room.peers.size >= MAX_ROOM_SIZE) { socket.emit("room:error", { message: `This room already has ${MAX_ROOM_SIZE} participants.` }); return; }
     const peer = { id: socket.id, name: cleanName(name) };
     const existingPeers = [...room.peers.values()];
     room.peers.set(socket.id, peer);
