@@ -88,6 +88,7 @@ export function useCallSession() {
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
 
   const socketRef = useRef<CallSocket | null>(null);
+  const selfIdRef = useRef("");
   const localStreamRef = useRef<MediaStream | null>(null);
   const screenTrackRef = useRef<MediaStreamTrack | null>(null);
   const peerConnectionsRef = useRef(new Map<string, RTCPeerConnection>());
@@ -181,6 +182,7 @@ export function useCallSession() {
         }
       };
       pc.onconnectionstatechange = () => {
+        console.info(`[webrtc] ${peer.name} connection: ${pc.connectionState}`);
         if (pc.connectionState === "failed") {
           setError(
             "A participant connection failed. A TURN server may be required on this network.",
@@ -190,6 +192,11 @@ export function useCallSession() {
           (connection) => connection.connectionState === "connected",
         ).length;
         setStatus(connected ? `${connected} participant${connected > 1 ? "s" : ""} connected` : "Connecting…");
+      };
+      pc.onicecandidateerror = (event) => {
+        console.warn(
+          `[webrtc] ${peer.name} ICE candidate error ${event.errorCode}: ${event.errorText}`,
+        );
       };
       return pc;
     },
@@ -220,21 +227,26 @@ export function useCallSession() {
 
   const setupSocket = useCallback(
     (socket: CallSocket) => {
-      socket.on("room:created", ({ roomId: id }) => {
+      socket.on("room:created", ({ roomId: id, selfId }) => {
+        selfIdRef.current = selfId;
         setRoomId(id);
         setJoined(true);
         setStatus("Waiting for participants…");
       });
-      socket.on("room:joined", ({ roomId: id, peers }) => {
+      socket.on("room:joined", ({ roomId: id, selfId, peers }) => {
+        selfIdRef.current = selfId;
         setRoomId(id);
         setJoined(true);
         setStatus(peers.length ? "Connecting…" : "Waiting for participants…");
-        peers.forEach((peer) => updateParticipant(peer, {}));
+        peers.forEach((peer) => {
+          updateParticipant(peer, {});
+          if (selfId < peer.id) void startOffer(peer);
+        });
       });
       socket.on("peer:joined", (peer) => {
         updateParticipant(peer, {});
         setStatus("Connecting…");
-        void startOffer(peer);
+        if (selfIdRef.current < peer.id) void startOffer(peer);
       });
       socket.on("peer:left", ({ peerId }) => {
         removeParticipant(peerId);
@@ -430,6 +442,7 @@ export function useCallSession() {
     socketRef.current?.emit("room:leave");
     socketRef.current?.disconnect();
     socketRef.current = null;
+    selfIdRef.current = "";
     peerConnectionsRef.current.forEach((pc) => pc.close());
     peerConnectionsRef.current.clear();
     localStreamRef.current?.getTracks().forEach((track) => track.stop());
