@@ -15,12 +15,18 @@ RUN apt-get update \
     pkg-config \
     python3 \
     python3-pip \
+    util-linux \
   && ln -s /usr/bin/python3 /usr/local/bin/python \
   && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 COPY package.json ./
-RUN npm install --omit=dev
+# Prefer the published worker and, if a source build is unavoidable, keep
+# mediasoup's Meson/Ninja build within small hosted-builder memory limits.
+ENV MEDIASOUP_FORCE_WORKER_PREBUILT_DOWNLOAD=1 \
+    MESON_ARGS="-Dbuildtype=release" \
+    NINJAFLAGS="-j1"
+RUN taskset -c 0 npm install --omit=dev --foreground-scripts
 COPY tsconfig.json ./
 COPY src ./src
 RUN npm install --no-save typescript @types/node @types/express @types/cors

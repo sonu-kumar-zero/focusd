@@ -74,6 +74,42 @@ Use credentials from your own TURN provider. Do not commit real TURN credentials
 7. Screen sharing is browser-dependent and generally requires HTTPS.
 8. Socket.IO handles control/signaling messages; mediasoup owns WebRTC transports, producers, and consumers. Media remains encrypted in transit with DTLS-SRTP.
 
+### Render and hosted platforms
+
+The mediasoup SFU requires a publicly reachable UDP port range. A standard Render
+Web Service exposes HTTP/TCP traffic but does not provide the UDP range required by
+mediasoup, so it cannot host this SFU media worker by itself. Use a VM or container
+host that supports UDP port publishing for the SFU, and set `MEDIASOUP_ANNOUNCED_IP`
+to that host's public address. Render can host the frontend separately, with the
+client pointed at the SFU's Socket.IO URL.
+
+This repository uses npm workspaces and `package-lock.json`. For a native build,
+configure the service with:
+
+```bash
+taskset -c 0 npm ci
+npm run build
+```
+
+Start the server with:
+
+```bash
+npm start
+```
+
+Do not run `yarn install` alongside npm; this repository has no `yarn.lock`, and
+mixing package managers can produce inconsistent workspace dependencies.
+
+The Dockerfile forces mediasoup to try the published worker first. The
+`taskset` limit is intentional: if mediasoup cannot use a compatible prebuilt
+worker, its native C++ fallback build can otherwise start one compiler job per
+host CPU and exceed the memory limit of a hosted build environment.
+Use the same CPU limit in the Render build command:
+
+```bash
+taskset -c 0 npm ci && npm run build
+```
+
 ## Project layout
 
 ```text

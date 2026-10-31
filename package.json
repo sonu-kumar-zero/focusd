@@ -2,6 +2,10 @@
   "name": "webrtc-zoom-two-person",
   "private": true,
   "version": "1.0.0",
+  "engines": {
+    "node": ">=22 <25",
+    "npm": ">=10"
+  },
   "workspaces": ["client", "server"],
   "scripts": {
     "dev": "concurrently -k \"npm run dev -w server\" \"npm run dev -w client\"",
