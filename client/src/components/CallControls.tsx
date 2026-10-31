@@ -9,6 +9,8 @@ import {
 } from "lucide-react";
 
 type CallControlsProps = {
+  hasAudio: boolean;
+  hasVideo: boolean;
   muted: boolean;
   cameraOff: boolean;
   sharing: boolean;
@@ -21,6 +23,8 @@ type CallControlsProps = {
 };
 
 export function CallControls({
+  hasAudio,
+  hasVideo,
   muted,
   cameraOff,
   sharing,
@@ -33,13 +37,20 @@ export function CallControls({
 }: CallControlsProps) {
   return (
     <div className="controls">
-      <button className={`control ${muted ? "off" : ""}`} onClick={onToggleMic}>
+      <button
+        className={`control ${muted ? "off" : ""}`}
+        onClick={onToggleMic}
+        disabled={!hasAudio}
+        title={hasAudio ? undefined : "No microphone available"}
+      >
         <span>{muted ? <MicOff /> : <Mic />}</span>
         <small>{muted ? "Unmute" : "Mute"}</small>
       </button>
       <button
         className={`control ${cameraOff ? "off" : ""}`}
         onClick={onToggleCamera}
+        disabled={!hasVideo}
+        title={hasVideo ? undefined : "No camera available"}
       >
         <span>{cameraOff ? <VideoOff /> : <Camera />}</span>
         <small>{cameraOff ? "Start video" : "Stop video"}</small>

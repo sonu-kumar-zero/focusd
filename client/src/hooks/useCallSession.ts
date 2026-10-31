@@ -44,6 +44,33 @@ function getMediaAccessError(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
 }
 
+async function getAvailableMedia(): Promise<MediaStream> {
+  const stream = new MediaStream();
+  if (!navigator.mediaDevices?.getUserMedia) return stream;
+
+  try {
+    const audio = await navigator.mediaDevices.getUserMedia({
+      audio: true,
+      video: false,
+    });
+    audio.getAudioTracks().forEach((track) => stream.addTrack(track));
+  } catch {
+    // Audio is optional; continue and try the camera independently.
+  }
+
+  try {
+    const video = await navigator.mediaDevices.getUserMedia({
+      audio: false,
+      video: true,
+    });
+    video.getVideoTracks().forEach((track) => stream.addTrack(track));
+  } catch {
+    // Video is optional; joining without a camera is supported.
+  }
+
+  return stream;
+}
+
 export function useCallSession() {
   const [name, setName] = useState("Guest");
   const [roomInput, setRoomInput] = useState("");
@@ -290,21 +317,12 @@ export function useCallSession() {
         setError("Enter your name first.");
         return;
       }
-      if (!navigator.mediaDevices?.getUserMedia) {
-        setError(
-          window.isSecureContext
-            ? "Camera and microphone access is not supported by this browser."
-            : "Camera and microphone require HTTPS or localhost.",
-        );
-        return;
-      }
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: true,
-          video: true,
-        });
+        const stream = await getAvailableMedia();
         localStreamRef.current = stream;
         setLocalStream(stream);
+        setMuted(stream.getAudioTracks().length === 0);
+        setCameraOff(stream.getVideoTracks().length === 0);
         const socket: CallSocket = io(SIGNALING_URL, {
           transports: ["websocket", "polling"],
         });
@@ -327,7 +345,7 @@ export function useCallSession() {
         setError(
           getMediaAccessError(
             mediaError,
-            "Camera and microphone permission is required.",
+            "Unable to initialize media devices. You can still join the room.",
           ),
         );
       }
@@ -337,8 +355,8 @@ export function useCallSession() {
 
   const emitMediaState = useCallback(() => {
     socketRef.current?.emit("peer:media", {
-      audio: !(localStreamRef.current?.getAudioTracks()[0]?.enabled === false),
-      video: !(localStreamRef.current?.getVideoTracks()[0]?.enabled === false),
+      audio: Boolean(localStreamRef.current?.getAudioTracks()[0]?.enabled),
+      video: Boolean(localStreamRef.current?.getVideoTracks()[0]?.enabled),
       screen: Boolean(screenTrackRef.current),
     });
   }, []);

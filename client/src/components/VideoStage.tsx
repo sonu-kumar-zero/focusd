@@ -112,6 +112,8 @@ export function VideoStage({
         ))}
       </div>
       <CallControls
+        hasAudio={Boolean(localStream?.getAudioTracks().length)}
+        hasVideo={Boolean(localStream?.getVideoTracks().length)}
         muted={muted}
         cameraOff={cameraOff}
         sharing={sharing}
